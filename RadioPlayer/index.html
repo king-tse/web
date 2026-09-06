@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>我的私人网络收音机</title>
+  <style>
+    /* 1. 页面整体 Flex 布局让整体上下左右看起来更舒适 */
+    body { 
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      padding: 40px 20px; 
+      background: #121212; 
+      color: #fff; 
+      margin: 0;
+    }
+
+    /* 2. 主容器：限制最大宽度为 450px，并水平居中 */
+    .container {
+      max-width: 450px;
+      margin: 0 auto;
+    }
+
+    h2 {
+      text-align: center;
+      margin-bottom: 25px;
+      letter-spacing: 1px;
+    }
+
+    /* 3. 电台卡片基础样式：缩小尺寸并增加精致感 */
+    .player-box { 
+      margin-bottom: 20px; 
+      padding: 20px; 
+      background: #1e1e1e; 
+      border-radius: 12px; 
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      box-sizing: border-box;
+    }
+
+    h3 { 
+      margin-top: 0; 
+      margin-bottom: 12px;
+      font-size: 18px;
+    }
+
+    /* 让音频播放控件拉满卡片宽度 */
+    audio { 
+      width: 100%; 
+      outline: none;
+    }
+
+    /* 4. BBC Radio 1 专属卡片样式补全 */
+    .card {
+      background: #1e1e1e;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+      text-align: center;
+      box-sizing: border-box;
+    }
+    .logo {
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 2px;
+      margin-bottom: 6px;
+      color: #ff0055;
+    }
+    .subtitle {
+      color: #888;
+      font-size: 13px;
+      margin-bottom: 16px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      padding: 10px 0;
+      background-color: #ff0055;
+      color: #ffffff;
+      text-decoration: none;
+      font-size: 15px;
+      font-weight: bold;
+      border-radius: 25px;
+      transition: all 0.2s ease;
+      box-sizing: border-box;
+    }
+    .btn:hover {
+      background-color: #e0004c;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(255, 0, 85, 0.4);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h2>Live Radio Player</h2>
+
+    <!-- Capital FM -->
+    <div class="player-box">
+      <h3>Capital FM UK (London)</h3>
+      <audio controls preload="none">
+        <source src="http://media-ice.musicradio.com/CapitalMP3" type="audio/mpeg">
+        你的浏览器不支持 audio 标签。
+      </audio>
+    </div>
+
+    <!-- Z100 New York -->
+    <div class="player-box">
+      <h3>Z100 New York (WHTZ)</h3>
+      <audio controls preload="none">
+        <source src="https://radio.garden/api/ara/content/listen/XSj1uCXy/channel.mp3" type="audio/mpeg">
+        你的浏览器不支持 audio 标签。
+      </audio>
+    </div>
+
+    <!-- BBC Radio 1 -->
+    <div class="card">
+      <div class="logo">BBC RADIO 1</div>
+      <div class="subtitle">Live Radio Stream</div>
+      <a href="https://www.bbc.co.uk/sounds/play/live/bbc_radio_one" target="_blank" class="btn">
+        ▶ 收听 BBC Radio 1
+      </a>
+    </div>
+  </div>
+
+</body>
+</html>
