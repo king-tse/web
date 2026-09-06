@@ -14,4 +14,4 @@ A simple and elegant web flip clock.
 
 # RadioPlayer
 
-[RadioPlayer](https://king-tse.github.io/web/radioplayer/index.html)
+[RadioPlayer](https://king-tse.github.io/web/RadioPlayer/index.html)
