@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tse Station - Live TV Player</title>
-  <!-- 引入专业播放器 DPlayer CSS 与 JS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.css">
   <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/dplayer/dist/DPlayer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/pako@2.1.0/dist/pako.min.js"></script>
   <style>
     :root {
       --bg-color: #0f172a;
@@ -101,6 +101,15 @@
 
     button:hover { background: #2563eb; }
 
+    .preset-section {
+      margin-top: 5px;
+      padding-top: 15px;
+      border-top: 1px dashed var(--border-color);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
     .side-panel {
       background: var(--card-bg);
       border-radius: 12px;
@@ -108,7 +117,7 @@
       display: flex;
       flex-direction: column;
       height: 100%;
-      max-height: 680px;
+      max-height: 720px;
     }
 
     .panel-header {
@@ -127,10 +136,7 @@
       font-size: 15px;
     }
 
-    .filter-tools {
-      display: flex;
-      gap: 8px;
-    }
+    .filter-tools { display: flex; gap: 8px; }
 
     .channel-list {
       flex: 1;
@@ -149,6 +155,12 @@
       cursor: pointer;
       transition: all 0.2s;
       display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .channel-item-main {
+      display: flex;
       justify-content: space-between;
       align-items: center;
     }
@@ -158,37 +170,239 @@
 
     .channel-name { font-size: 13px; word-break: break-all; }
     .channel-group-tag { font-size: 10px; background: #334155; padding: 2px 6px; border-radius: 4px; color: #cbd5e1; }
+    
+    .channel-epg-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 2px;
+    }
+
+    .channel-epg-text {
+      font-size: 11px;
+      color: #38bdf8;
+      font-weight: normal;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 220px;
+    }
+
+    .epg-btn {
+      font-size: 10px;
+      padding: 2px 6px;
+      background: #334155;
+      color: #38bdf8;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+    }
+
+    .epg-btn:hover { background: #0284c7; color: #fff; }
+
+    /* EPG 节目单弹窗 Modal 样式 */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100vw; height: 100vh;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(4px);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 30px rgba(0,0,0,0.6);
+    }
+
+    .modal-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h3 { font-size: 16px; color: #fff; }
+
+    .modal-close {
+      background: transparent;
+      color: #94a3b8;
+      font-size: 20px;
+      padding: 0;
+      cursor: pointer;
+    }
+
+    .modal-body {
+      padding: 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .epg-schedule-item {
+      display: flex;
+      gap: 12px;
+      padding: 8px 10px;
+      border-radius: 6px;
+      background: #0f172a;
+      font-size: 13px;
+      align-items: center;
+    }
+
+    .epg-schedule-item.now-playing {
+      background: #1e3a8a;
+      border-left: 3px solid #3b82f6;
+    }
+
+    .epg-time {
+      color: #94a3b8;
+      font-size: 12px;
+      font-family: monospace;
+      white-space: nowrap;
+    }
+
+    .epg-title {
+      color: #f8fafc;
+      flex: 1;
+    }
+
+    .epg-tag {
+      font-size: 10px;
+      background: #2563eb;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
 
 <div class="dashboard">
-  <!-- 主播放区域 -->
   <div class="main-player-card">
     <div id="dplayer"></div>
     
     <div class="control-panel">
-      <!-- M3U 播放列表加载 -->
       <div class="input-group">
         <label>M3U 频道列表地址 / 单个 M3U8 链接</label>
         <div class="input-row">
-          <input type="text" id="streamUrl" value="https://iptv-org.github.io/iptv/index.m3u">
+          <input type="text" id="streamUrl" value="https://iptv.yang-1989.xyz/playlist.m3u">
           <button onclick="handleStreamInput()">解析/播放</button>
         </div>
       </div>
 
-      <!-- EPG 节目单地址 -->
       <div class="input-group">
-        <label>EPG 电子节目单地址</label>
+        <label>EPG 电子节目单地址 (.xml 或 .xml.gz)</label>
         <div class="input-row">
-          <input type="text" id="epgUrl" value="">
+          <input type="text" id="epgUrl" value="https://iptv.yang-1989.xyz/epg.xml.gz">
           <button onclick="loadEPG()" style="background: #475569;">加载 EPG</button>
+        </div>
+      </div>
+
+      <div class="preset-section">
+        <div class="input-group">
+          <label>📌 预设直播源列表</label>
+          <select id="presetSourceSelect" onchange="applyPresetSource(this.value)">
+            <option value="">-- 选择预设源 --</option>
+            <option value="https://iptv.yang-1989.xyz/playlist.m3u" selected>Yang-1989 聚合源</option>
+            <option value="https://iptv-org.github.io/iptv/index.m3u">IPTV-Org 全球源 (主列表)</option>
+            <option value="https://iptv-org.github.io/iptv/index.category.m3u">IPTV-Org 全球源 (类别分组)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/animation.m3u">--动画片(animation)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/auto.m3u">--汽车(auto)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/business.m3u">--商业(business)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/classic.m3u">--经典(classic)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/comedy.m3u">--喜剧(comedy)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/cooking.m3u">--烹饪(cooking)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/culture.m3u">--文化(culture)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/documentary.m3u">--纪录(documentary)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/education.m3u">--教育(education)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/entertainment.m3u">--娱乐(entertainment)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/family.m3u">--家庭(family)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/general.m3u">--一般的(general)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/interactive.m3u">--交互的(interactive)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/kids.m3u">--儿童(kids)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/legislative.m3u">--立法(legislative)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/lifestyle.m3u">--生活方式(lifestyle)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/movies.m3u">--电影(movies)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/music.m3u">--音乐(music)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/news.m3u">--新闻(news)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/outdoor.m3u">--户外(outdoor)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/public.m3u">--民众(public)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/relax.m3u">--放松(relax)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/religious.m3u">--宗教(religious)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/science.m3u">--科学(science)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/series.m3u">--系列(series)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/shop.m3u">--店铺(shop)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/sports.m3u">--运动的(sports)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/travel.m3u">--旅行(travel)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/weather.m3u">--天气(weather)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/xxx.m3u">--XXX(xxx)</option>
+            <option value="https://iptv-org.github.io/iptv/categories/undefined.m3u">--不明确的(undefined)</option>
+            <option value="https://iptv-org.github.io/iptv/index.language.m3u">IPTV-Org 全球源 (语言分组)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/zho.m3u">--中文(zho)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/eng.m3u">--英语(eng)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/fra.m3u">--法语(fra)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/deu.m3u">--德语(deu)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/ita.m3u">--意大利语(ita)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/jpn.m3u">--日本人(jpn)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/kor.m3u">--韩国人(kor)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/msa.m3u">--马来语(msa)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/cmn.m3u">--普通话(cmn)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/nan.m3u">--闽南语(nan)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/ukr.m3u">--乌克兰(ukr)</option>
+            <option value="https://iptv-org.github.io/iptv/languages/vie.m3u">--越南语(vie)</option>
+            <option value="https://iptv-org.github.io/iptv/index.country.m3u">IPTV-Org 全球源 (国家分组)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/au.m3u">-- 澳大利亚(au)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/ca.m3u">-- 加拿大(ca)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/cn.m3u">-- 中国(cn)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/fr.m3u">-- 法国(fr)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/de.m3u">-- 德国(de)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/it.m3u">-- 意大利(it)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/jp.m3u">-- 日本(jp)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/my.m3u">-- 马来西亚(my)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/kr.m3u">-- 韩国(kr)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/tw.m3u">-- 台湾(tw)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/gb.m3u">-- 英国(gb)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/us.m3u">-- 美国(us)</option>
+            <option value="https://iptv-org.github.io/iptv/countries/un.m3u">-- 联合国(un)</option>
+            <option value="https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8">单流测试源 (Mux 1080p)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label>📅 预设 EPG 接口</label>
+          <select id="presetEpgSelect" onchange="applyPresetEPG(this.value)">
+            <option value="">-- 选择预设 EPG --</option>
+            <option value="https://iptv.yang-1989.xyz/epg.xml.gz" selected>Yang-1989 EPG (Gz压缩)</option>
+            <option value="https://epg.pw/xmltv/epg.xml.gz">epg.pw 全球集合 (ALL)</option>
+            <option value="https://epg.pw/xmltv/epg_CN.xml">epg.pw 中国 (CN)</option>
+            <option value="https://epg.pw/xmltv/epg_GB.xml">epg.pw 英国 (GB)</option>
+            <option value="https://epg.pw/xmltv/epg_US.xml">epg.pw 美国 (US)</option>
+            <option value="http://epg.51zmt.top:8000/e.xml">51zmt 经典央视卫视 EPG</option>
+          </select>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 侧边栏：分类与频道列表 -->
   <div class="side-panel">
     <div class="panel-header">
       <div class="header-top">
@@ -196,7 +410,6 @@
         <span id="currentStatus" style="font-size: 12px; color: #10b981;">就绪</span>
       </div>
       
-      <!-- 分类筛选与搜索 -->
       <div class="filter-tools">
         <select id="groupSelect" onchange="filterChannels()" style="font-size: 12px;">
           <option value="ALL">全部分类 (All Groups)</option>
@@ -207,21 +420,60 @@
 
     <div class="channel-list" id="channelContainer">
       <div style="color: #64748b; font-size: 13px; text-align: center; padding-top: 20px;">
-        在左侧输入 M3U 链接并点击“解析”以加载频道列表
+        在左侧输入 M3U 链接或通过预设下拉菜单加载频道列表
       </div>
     </div>
   </div>
 </div>
 
+<div class="modal-overlay" id="epgModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <h3 id="modalChannelTitle">频道节目单</h3>
+      <button class="modal-close" onclick="closeEpgModal()">&times;</button>
+    </div>
+    <div class="modal-body" id="modalEpgList">
+      </div>
+  </div>
+</div>
+
 <script>
   let dp = null;
-  let allChannels = [];       // 保存全部解析到的频道
-  let filteredChannels = [];  // 保存当前筛选显示的频道
+  let hlsInstance = null; // 保存 HLS 实例引用，避免音频残留
+  let allChannels = [];
+  let filteredChannels = [];
+  let rawEpgProgrammes = [];
 
-  // 初始化播放器
+  // 清洗频道名称/ID的辅助函数：移除分辨率标记、特殊字符并统转小写
+  function cleanChannelName(str) {
+    if (!str) return '';
+    return str
+      .toLowerCase()
+      .replace(/\(.*?\)|\[.*?\]|「.*?」/g, '') // 自动清洗 (1080p)、[720p] 等后缀
+      .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');  // 仅保留基础字符进行智能比对
+  }
+
   function playUrl(url) {
-    if (dp) dp.destroy();
+    // 1. 彻底销毁上一个播放器实例
+    if (dp) {
+      try {
+        dp.pause();
+        dp.destroy();
+      } catch (e) {}
+      dp = null;
+    }
 
+    // 2. 彻底销毁并停止上一个 HLS 流解密/下载（解决残留声音的关键）
+    if (hlsInstance) {
+      try {
+        hlsInstance.stopLoad();
+        hlsInstance.detachMedia();
+        hlsInstance.destroy();
+      } catch (e) {}
+      hlsInstance = null;
+    }
+
+    // 3. 重新创建播放器
     dp = new DPlayer({
       container: document.getElementById('dplayer'),
       live: true,
@@ -232,9 +484,9 @@
         type: 'customHls',
         customType: {
           customHls: function (video) {
-            const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
-            hls.loadSource(video.src);
-            hls.attachMedia(video);
+            hlsInstance = new Hls({ enableWorker: true, lowLatencyMode: true });
+            hlsInstance.loadSource(video.src);
+            hlsInstance.attachMedia(video);
           }
         }
       }
@@ -251,7 +503,18 @@
     });
   }
 
-  // 点击“解析/播放”判断
+  function applyPresetSource(url) {
+    if (!url) return;
+    document.getElementById('streamUrl').value = url;
+    handleStreamInput();
+  }
+
+  function applyPresetEPG(url) {
+    if (!url) return;
+    document.getElementById('epgUrl').value = url;
+    loadEPG();
+  }
+
   async function handleStreamInput() {
     const url = document.getElementById('streamUrl').value.trim();
     if (!url) return alert('请输入地址！');
@@ -263,7 +526,6 @@
     }
   }
 
-  // 获取 M3U 文件
   async function fetchM3uPlaylist(url) {
     document.getElementById('currentStatus').innerText = "获取列表中...";
     try {
@@ -273,14 +535,13 @@
       
       parseM3u(text);
       document.getElementById('currentStatus').innerText = "解析成功";
+      loadEPG();
     } catch (e) {
-      alert("解析 M3U 失败！可能是服务器设置了 CORS 跨域限制，建议开启 Cors 扩展插件。");
       document.getElementById('currentStatus').innerText = "加载失败";
       document.getElementById('currentStatus').style.color = "#ef4444";
     }
   }
 
-  // 解析 M3U 文本（提取频道名 + group-title 分类）
   function parseM3u(data) {
     const lines = data.split('\n');
     allChannels = [];
@@ -288,38 +549,37 @@
 
     let currentName = '';
     let currentGroup = '未分类';
+    let currentTvgId = '';
 
     lines.forEach(line => {
       line = line.trim();
       if (line.startsWith('#EXTINF:')) {
-        // 提取 group-title 分类
         const groupMatch = line.match(/group-title="([^"]+)"/i);
         currentGroup = groupMatch ? groupMatch[1] : '未分类';
         groups.add(currentGroup);
 
-        // 提取频道名称
+        const idMatch = line.match(/tvg-id="([^"]+)"/i);
+        currentTvgId = idMatch ? idMatch[1] : '';
+
         const parts = line.split(',');
         currentName = parts[parts.length - 1] || '未知频道';
+        currentName = currentName.replace(/\s*「.*?」/g, '').trim(); 
       } else if (line.startsWith('http')) {
         if (currentName) {
-          allChannels.push({ name: currentName, group: currentGroup, url: line });
+          allChannels.push({ name: currentName, group: currentGroup, tvgId: currentTvgId, url: line });
           currentName = '';
         }
       }
     });
 
-    // 更新分类下拉列表
     updateGroupDropdown(Array.from(groups));
-    
-    // 初始化显示列表
     filterChannels();
 
     if (allChannels.length > 0) {
-      selectChannel(0); // 默认播放第一项
+      selectChannel(0);
     }
   }
 
-  // 渲染分类下拉菜单
   function updateGroupDropdown(groups) {
     const select = document.getElementById('groupSelect');
     select.innerHTML = '<option value="ALL">全部分类 (All Groups)</option>';
@@ -332,7 +592,6 @@
     });
   }
 
-  // 根据选中的分类和搜索词过滤列表
   function filterChannels() {
     const selectedGroup = document.getElementById('groupSelect').value;
     const keyword = document.getElementById('searchBox').value.toLowerCase().trim();
@@ -346,7 +605,6 @@
     renderChannelList();
   }
 
-  // 渲染频道列表 UI
   function renderChannelList() {
     const container = document.getElementById('channelContainer');
     document.getElementById('channelCount').innerText = filteredChannels.length;
@@ -361,16 +619,27 @@
       const div = document.createElement('div');
       div.className = 'channel-item';
       div.id = `ch-${index}`;
+      
+      const currentProgram = getCurrentProgramme(ch);
+      const epgText = currentProgram ? `▶ ${currentProgram.title}` : '暂无节目表';
+
       div.innerHTML = `
-        <span class="channel-name">${ch.name}</span>
-        <span class="channel-group-tag">${ch.group}</span>
+        <div class="channel-item-main">
+          <span class="channel-name">${ch.name}</span>
+          <span class="channel-group-tag">${ch.group}</span>
+        </div>
+        <div class="channel-epg-row">
+          <span class="channel-epg-text">${epgText}</span>
+          <button class="epg-btn" onclick="openEpgModal(event, ${index})">📅 节目单</button>
+        </div>
       `;
-      div.onclick = () => selectChannel(index);
+      div.onclick = (e) => {
+        if(!e.target.classList.contains('epg-btn')) selectChannel(index);
+      };
       container.appendChild(div);
     });
   }
 
-  // 选中并播放频道
   function selectChannel(index) {
     document.querySelectorAll('.channel-item').forEach(el => el.classList.remove('active'));
     const activeEl = document.getElementById(`ch-${index}`);
@@ -379,9 +648,145 @@
     playUrl(filteredChannels[index].url);
   }
 
-  function loadEPG() {
-    alert("EPG 接口已更新");
+  async function loadEPG() {
+    const epgUrl = document.getElementById('epgUrl').value.trim();
+    if (!epgUrl) return;
+
+    document.getElementById('currentStatus').innerText = "加载 EPG 中...";
+    try {
+      const response = await fetch(epgUrl);
+      if (!response.ok) throw new Error('网络请求失败');
+
+      let xmlText = '';
+      if (epgUrl.endsWith('.gz')) {
+        const arrayBuffer = await response.arrayBuffer();
+        const decompressed = pako.inflate(new Uint8Array(arrayBuffer), { to: 'string' });
+        xmlText = decompressed;
+      } else {
+        xmlText = await response.text();
+      }
+
+      parseXMLTV(xmlText);
+      document.getElementById('currentStatus').innerText = "EPG 匹配成功";
+      document.getElementById('currentStatus').style.color = "#10b981";
+    } catch (e) {
+      document.getElementById('currentStatus').innerText = "EPG 匹配失败";
+      document.getElementById('currentStatus').style.color = "#ef4444";
+    }
   }
+
+  function parseXMLTV(xmlString) {
+    const parser = new DOMParser();
+    const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+    const programmes = xmlDoc.getElementsByTagName("programme");
+
+    rawEpgProgrammes = [];
+
+    for (let prog of programmes) {
+      const channel = prog.getAttribute("channel");
+      const startStr = prog.getAttribute("start");
+      const stopStr = prog.getAttribute("stop");
+      const title = prog.getElementsByTagName("title")[0]?.textContent || '';
+
+      if (channel && title && startStr) {
+        rawEpgProgrammes.push({
+          channel: channel,
+          start: parseXmltvTime(startStr),
+          stop: parseXmltvTime(stopStr),
+          title: title
+        });
+      }
+    }
+
+    renderChannelList();
+  }
+
+  function parseXmltvTime(timeStr) {
+    if (!timeStr || timeStr.length < 14) return new Date(0);
+    const Y = timeStr.substr(0, 4);
+    const M = timeStr.substr(4, 2) - 1;
+    const D = timeStr.substr(6, 2);
+    const h = timeStr.substr(8, 2);
+    const m = timeStr.substr(10, 2);
+    const s = timeStr.substr(12, 2);
+    return new Date(Date.UTC(Y, M, D, h - 8, m, s));
+  }
+
+  function getCurrentProgramme(ch) {
+    if (!rawEpgProgrammes || rawEpgProgrammes.length === 0) return null;
+
+    const now = new Date();
+    const chNameClean = cleanChannelName(ch.name);
+    const tvgIdClean = cleanChannelName(ch.tvgId);
+
+    return rawEpgProgrammes.find(p => {
+      const epgChanClean = cleanChannelName(p.channel);
+      
+      const isMatch = (tvgIdClean && epgChanClean === tvgIdClean) ||
+                      (epgChanClean === chNameClean) ||
+                      (chNameClean.length > 3 && epgChanClean.includes(chNameClean));
+
+      return isMatch && (now >= p.start && now <= p.stop);
+    });
+  }
+
+  function openEpgModal(event, index) {
+    event.stopPropagation();
+    const ch = filteredChannels[index];
+    const chNameClean = cleanChannelName(ch.name);
+    const tvgIdClean = cleanChannelName(ch.tvgId);
+    const now = new Date();
+
+    const channelProgs = rawEpgProgrammes.filter(p => {
+      const epgChanClean = cleanChannelName(p.channel);
+      return (tvgIdClean && epgChanClean === tvgIdClean) ||
+             (epgChanClean === chNameClean) ||
+             (chNameClean.length > 3 && epgChanClean.includes(chNameClean));
+    });
+
+    document.getElementById('modalChannelTitle').innerText = `📺 ${ch.name} - 节目单`;
+    const container = document.getElementById('modalEpgList');
+    container.innerHTML = '';
+
+    if (channelProgs.length === 0) {
+      container.innerHTML = '<div style="color: #64748b; text-align: center; padding: 20px;">未匹配到该频道的 EPG 信息</div>';
+    } else {
+      channelProgs.forEach(p => {
+        const isNow = (now >= p.start && now <= p.stop);
+        const startTime = p.start.toTimeString().substr(0, 5);
+        const stopTime = p.stop.toTimeString().substr(0, 5);
+
+        const div = document.createElement('div');
+        div.className = `epg-schedule-item ${isNow ? 'now-playing' : ''}`;
+        div.innerHTML = `
+          <span class="epg-time">${startTime} - ${stopTime}</span>
+          <span class="epg-title">${p.title}</span>
+          ${isNow ? '<span class="epg-tag">正在播出</span>' : ''}
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    document.getElementById('epgModal').classList.add('active');
+  }
+
+  function closeEpgModal() {
+    document.getElementById('epgModal').classList.remove('active');
+  }
+
+  // 点击半透明背景空白处关闭弹窗
+  document.getElementById('epgModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+      closeEpgModal();
+    }
+  });
+
+  // 按 Esc 键关闭弹窗
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      closeEpgModal();
+    }
+  });
 </script>
 
 </body>
