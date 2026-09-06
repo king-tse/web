@@ -1,8 +1,7 @@
 # web
 
-# FlipClock
+# Flip Clock(Web Version)
 A simple and elegant web flip clock.
-## Flip Clock Web Version
 
 [London](https://king-tse.github.io/web/FlipClock/Time-London.html)
 
