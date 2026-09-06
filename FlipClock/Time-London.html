@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>Flip Clock 24H - London</title>
+    <!-- 引入标准方正高瘦字体 Oswald -->
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&display=swap" rel="stylesheet">
+    <style>
+        /* ==========================================
+           【核心可调节参数区域 (CSS 变量)】
+           ================================---------- */
+        :root {
+            --body-bg: #000000;         /* 整体背景颜色（默认全黑） */
+            --card-bg: #111111;         /* 翻页时钟卡片背景色 */
+            --text-color: #cccccc;      /* 数字颜色 */
+            
+            --font-size: 23.5vw;        /* 【数字大小】字号，数字越大字越大 */
+            --col-width: 12vw;          /* 【数字宽度】单列数字宽度 */
+            --col-height: 28vw;         /* 【卡片高度】整个时钟方块的高度 */
+            
+            --center-border: 6px solid #080808; /* 【卡片中间横线】已调整为 6px，可改粗细和颜色 */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--body-bg);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            position: relative;
+        }
+
+        /* 顶部城市名称样式 */
+        .city-label {
+            position: absolute;
+            top: 5vh;
+            font-size: 1.4vw;           /* 城市名字号大小 */
+            color: #222222;             /* 城市名字体颜色 */
+            letter-spacing: 6px;        /* 字母间距 */
+            font-weight: 500;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            text-transform: uppercase;
+        }
+
+        /* ==========================================
+           【屏幕正中心贯穿横线】
+           ================================---------- */
+        .global-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 6px;                /* 【贯穿横线粗细】已调整为 6px */
+            background: #141414;        /* 贯穿横线颜色 */
+            transform: translateY(-50%);
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        /* 时钟整体容器（包含时、分、秒三组） */
+        .time {
+            display: flex;
+            gap: 1vw;                 /* 【组与组间距】时、分、秒三大卡片组之间的距离 */
+            justify-content: center;
+            align-items: center;
+            font-family: "Oswald", sans-serif;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* 单个时间组卡片外壳（例如小时是一个组，分钟是一个组） */
+        .card-group {
+            display: flex;
+            background: var(--card-bg);
+            border-radius: 3.2vw;       /* 【卡片圆角大小】数值越大越圆润 */
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.95); /* 卡片阴影立体感 */
+            padding: 0 2.2vw;           /* 【组内留白】组内两个数字左右两侧的留白边距 */
+        }
+
+        /* 单个数字所在的列 */
+        .col {
+            width: var(--col-width);
+            height: var(--col-height);
+            perspective: var(--col-height);
+            position: relative;
+        }
+
+        /* 数字卡片上下半部分通用样式 */
+        .curr, .next {
+            position: relative;
+            width: var(--col-width);
+            height: calc(var(--col-height) / 2);
+            font-size: var(--font-size);
+            background: var(--card-bg);
+            color: var(--text-color);
+            overflow: hidden;
+            box-sizing: border-box;
+            font-weight: 500;
+        }
+
+        /* 数字排版对齐与缩放 */
+        .flip .curr::before,
+        .flip .next::before,
+        .col > .curr::before,
+        .col > .next::before {
+            position: absolute;
+            content: attr(data-t);
+            line-height: var(--col-height);
+            text-align: center;
+            height: var(--col-height);
+            left: 0;
+            right: 0;
+            transform: scale(1);
+        }
+
+        .flip .curr::before, .col > .next::before { top: 0; }
+        .flip .next::before, .col > .curr::before { bottom: 0; }
+
+        .flip .curr, .col > .next { border-bottom: var(--center-border); }
+        .flip .next, .col > .curr { border-top: var(--center-border); }
+
+        .flip .next {
+            transform: rotateX(-180deg);
+            backface-visibility: hidden;
+        }
+
+        .flip .curr {
+            position: absolute;
+            top: 0;
+            backface-visibility: hidden;
+        }
+
+        /* 翻页动画核心样式 */
+        .flip {
+            position: absolute;
+            width: var(--col-width);
+            height: var(--col-height);
+            z-index: 1;
+            transform-style: preserve-3d;
+            transition: transform 0s;
+            transform: rotateX(0);
+        }
+
+        .flip.active {
+            transition: all 0.4s ease-in-out;
+            transform: rotateX(-180deg);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="global-line"></div>
+    <div class="city-label" id="cityLabel">SHANGHAI</div>
+    
+    <div class="time" id="time"></div>
+
+    <script>
+        /* ==========================================
+           【时区与城市配置区域】
+           ================================---------- */
+        const CONFIG = {
+            cityName: "London",       /* 在这里修改顶显显示的城市英文名 */
+            
+            /* 
+              【如何修改时区？】
+              修改下面的 timeZone 即可切换不同城市时区：
+              - 上海/北京: "Asia/Shanghai"
+              - 东京: "Asia/Tokyo"
+              - 纽约: "America/New_York"
+              - 伦敦: "Europe/London"
+              - 巴黎: "Europe/Paris"
+            */
+            timeZone: "Europe/London" 
+        };
+
+        // 自动将配置应用到页面顶部标签
+        document.getElementById('cityLabel').textContent = CONFIG.cityName;
+
+        const colElms = [];
+
+        // 获取目标时区当前时间的工具函数
+        function getTimeParts() {
+            const now = new Date();
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: CONFIG.timeZone,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false // 24小时制
+            });
+
+            const timeParts = formatter.formatToParts(now);
+            let h = "00", m = "00", s = "00";
+
+            for (const part of timeParts) {
+                if (part.type === 'hour') h = part.value.padStart(2, '0');
+                if (part.type === 'minute') m = part.value;
+                if (part.type === 'second') s = part.value;
+            }
+
+            if (h === "24") h = "00";
+            return [h, m, s];
+        }
+
+        // 动态创建时钟 DOM 结构（时、分、秒卡片）
+        function createColContainer() {
+            const timeContainer = document.getElementById("time");
+            
+            for (let g = 0; g < 3; g++) {
+                const group = document.createElement("div");
+                group.classList.add("card-group");
+
+                const groupCols = [];
+
+                for (let c = 0; c < 2; c++) {
+                    const col = document.createElement("div");
+                    col.classList.add("col");
+
+                    const flip = document.createElement("div");
+                    flip.classList.add("flip");
+
+                    const flipNext = document.createElement("div");
+                    flipNext.classList.add("next");
+                    const flipCurr = document.createElement("div");
+                    flipCurr.classList.add("curr");
+
+                    const next = document.createElement("div");
+                    next.classList.add("next");
+                    const curr = document.createElement("div");
+                    curr.classList.add("curr");
+
+                    flip.append(flipNext, flipCurr);
+                    col.append(flip, next, curr);
+                    group.append(col);
+
+                    groupCols.push({
+                        toggleActive: () => flip.classList.toggle("active"),
+                        getCurr: () => curr.dataset.t,
+                        setCurr: (t) => [flipCurr, curr].forEach((el) => (el.dataset.t = t)),
+                        setNext: (t) => [flipNext, next].forEach((el) => (el.dataset.t = t)),
+                    });
+                }
+                colElms.push(groupCols);
+                timeContainer.append(group);
+            }
+        }
+
+        createColContainer();
+
+        const initialParts = getTimeParts();
+        colElms.forEach((groupCols, groupIdx) => {
+            const strVal = initialParts[groupIdx];
+            groupCols[0].setCurr(strVal[0]);
+            groupCols[1].setCurr(strVal[1]);
+        });
+
+        // 核心时间更新与翻页触发逻辑
+        let lastSec = -1;
+        function updateTime() {
+            const timeParts = getTimeParts();
+            const currentSec = parseInt(timeParts[2]);
+
+            if (currentSec === lastSec) return;
+            lastSec = currentSec;
+
+            colElms.forEach((groupCols, groupIdx) => {
+                const newStr = timeParts[groupIdx];
+                const oldStr = groupCols[0].getCurr() + groupCols[1].getCurr();
+
+                if (oldStr !== newStr) {
+                    groupCols[0].setNext(newStr[0]);
+                    groupCols[1].setNext(newStr[1]);
+
+                    groupCols[0].toggleActive();
+                    groupCols[1].toggleActive();
+
+                    setTimeout(() => {
+                        groupCols[0].toggleActive();
+                        groupCols[1].toggleActive();
+                        groupCols[0].setCurr(newStr[0]);
+                        groupCols[1].setCurr(newStr[1]);
+                    }, 400);
+                }
+            });
+        }
+
+        // 循环监听运行
+        function run() {
+            updateTime();
+            setTimeout(() => { run(); }, 1000 / 60);
+        }
+
+        run();
+    </script>
+</body>
+</html>
