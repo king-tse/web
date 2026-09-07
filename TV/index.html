@@ -200,7 +200,7 @@
 
     .epg-btn:hover { background: #0284c7; color: #fff; }
 
-    /* EPG 节目单弹窗 Modal 样式 */
+    /* EPG 节目单弹窗 Modal 样式 - 改为宽屏多列 */
     .modal-overlay {
       position: fixed;
       top: 0; left: 0; width: 100vw; height: 100vh;
@@ -224,9 +224,9 @@
       background: var(--card-bg);
       border: 1px solid var(--border-color);
       border-radius: 12px;
-      width: 90%;
-      max-width: 500px;
-      max-height: 80vh;
+      width: 95%;
+      max-width: 1200px; /* 扩展弹窗宽度以适应多列展示 */
+      max-height: 85vh;
       display: flex;
       flex-direction: column;
       box-shadow: 0 20px 30px rgba(0,0,0,0.6);
@@ -250,22 +250,65 @@
       cursor: pointer;
     }
 
+    /* 多列横向网格布局容器 */
     .modal-body {
       padding: 16px;
+      overflow-x: auto; /* 允许横向滚动 */
+      overflow-y: auto;
+      display: grid;
+      grid-auto-flow: column;
+      grid-auto-columns: minmax(260px, 1fr); /* 每一列日期的宽度 */
+      gap: 16px;
+      align-items: start;
+    }
+
+    /* 每日节目列表一列 */
+    .epg-day-column {
+      background: #0f172a;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      max-height: 68vh;
+    }
+
+    .epg-day-header {
+      background: #334155;
+      color: #38bdf8;
+      font-weight: bold;
+      font-size: 13px;
+      padding: 8px 12px;
+      text-align: center;
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    /* 方案一：隐藏每日列表滚动条，保留滚轮功能 */
+    .epg-day-list {
+      padding: 8px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE / Edge */
+    }
+
+    .epg-day-list::-webkit-scrollbar {
+      display: none; /* Chrome / Safari / Edge (WebKit) */
     }
 
     .epg-schedule-item {
       display: flex;
-      gap: 12px;
-      padding: 8px 10px;
-      border-radius: 6px;
-      background: #0f172a;
-      font-size: 13px;
-      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 4px;
+      background: #1e293b;
+      font-size: 12px;
+      align-items: flex-start;
     }
 
     .epg-schedule-item.now-playing {
@@ -275,22 +318,25 @@
 
     .epg-time {
       color: #94a3b8;
-      font-size: 12px;
+      font-size: 11px;
       font-family: monospace;
       white-space: nowrap;
+      padding-top: 1px;
     }
 
     .epg-title {
       color: #f8fafc;
       flex: 1;
+      word-break: break-all;
     }
 
     .epg-tag {
       font-size: 10px;
       background: #2563eb;
       color: #fff;
-      padding: 2px 6px;
-      border-radius: 4px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      white-space: nowrap;
     }
   </style>
 </head>
@@ -323,6 +369,7 @@
           <select id="presetSourceSelect" onchange="applyPresetSource(this.value)">
             <option value="">-- 选择预设源 --</option>
             <option value="https://iptv.yang-1989.xyz/playlist.m3u" selected>Yang-1989 聚合源</option>
+            <option value="https://raw.githubusercontent.com/king-tse/m3u/main/Gather.m3u">Tse全球源</option>
             <option value="https://iptv-org.github.io/iptv/index.m3u">IPTV-Org 全球源 (主列表)</option>
             <option value="https://iptv-org.github.io/iptv/index.category.m3u">IPTV-Org 全球源 (类别分组)</option>
             <option value="https://iptv-org.github.io/iptv/categories/animation.m3u">--动画片(animation)</option>
@@ -392,6 +439,7 @@
           <select id="presetEpgSelect" onchange="applyPresetEPG(this.value)">
             <option value="">-- 选择预设 EPG --</option>
             <option value="https://iptv.yang-1989.xyz/epg.xml.gz" selected>Yang-1989 EPG (Gz压缩)</option>
+            <option value="https://cdn.jsdelivr.net/gh/king-tse/m3u@main/epg/Gather_epg.xml.gz">TSE全球源</option>
             <option value="https://epg.pw/xmltv/epg.xml.gz">epg.pw 全球集合 (ALL)</option>
             <option value="https://epg.pw/xmltv/epg_CN.xml">epg.pw 中国 (CN)</option>
             <option value="https://epg.pw/xmltv/epg_GB.xml">epg.pw 英国 (GB)</option>
@@ -433,28 +481,26 @@
       <button class="modal-close" onclick="closeEpgModal()">&times;</button>
     </div>
     <div class="modal-body" id="modalEpgList">
-      </div>
+    </div>
   </div>
 </div>
 
 <script>
   let dp = null;
-  let hlsInstance = null; // 保存 HLS 实例引用，避免音频残留
+  let hlsInstance = null;
   let allChannels = [];
   let filteredChannels = [];
   let rawEpgProgrammes = [];
 
-  // 清洗频道名称/ID的辅助函数：移除分辨率标记、特殊字符并统转小写
   function cleanChannelName(str) {
     if (!str) return '';
     return str
       .toLowerCase()
-      .replace(/\(.*?\)|\[.*?\]|「.*?」/g, '') // 自动清洗 (1080p)、[720p] 等后缀
-      .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');  // 仅保留基础字符进行智能比对
+      .replace(/\(.*?\)|\[.*?\]|「.*?」/g, '')
+      .replace(/[^a-z0-9\u4e00-\u9fa5]/g, '');
   }
 
   function playUrl(url) {
-    // 1. 彻底销毁上一个播放器实例
     if (dp) {
       try {
         dp.pause();
@@ -463,7 +509,6 @@
       dp = null;
     }
 
-    // 2. 彻底销毁并停止上一个 HLS 流解密/下载（解决残留声音的关键）
     if (hlsInstance) {
       try {
         hlsInstance.stopLoad();
@@ -473,7 +518,6 @@
       hlsInstance = null;
     }
 
-    // 3. 重新创建播放器
     dp = new DPlayer({
       container: document.getElementById('dplayer'),
       live: true,
@@ -658,10 +702,11 @@
       if (!response.ok) throw new Error('网络请求失败');
 
       let xmlText = '';
-      if (epgUrl.endsWith('.gz')) {
+      if (epgUrl.endsWith('.gz') || epgUrl.includes('.gz?')) {
         const arrayBuffer = await response.arrayBuffer();
-        const decompressed = pako.inflate(new Uint8Array(arrayBuffer), { to: 'string' });
-        xmlText = decompressed;
+        const decompressed = pako.inflate(new Uint8Array(arrayBuffer));
+        const decoder = new TextDecoder('utf-8');
+        xmlText = decoder.decode(decompressed);
       } else {
         xmlText = await response.text();
       }
@@ -670,6 +715,7 @@
       document.getElementById('currentStatus').innerText = "EPG 匹配成功";
       document.getElementById('currentStatus').style.color = "#10b981";
     } catch (e) {
+      console.error('EPG加载失败:', e);
       document.getElementById('currentStatus').innerText = "EPG 匹配失败";
       document.getElementById('currentStatus').style.color = "#ef4444";
     }
@@ -703,13 +749,27 @@
 
   function parseXmltvTime(timeStr) {
     if (!timeStr || timeStr.length < 14) return new Date(0);
-    const Y = timeStr.substr(0, 4);
-    const M = timeStr.substr(4, 2) - 1;
-    const D = timeStr.substr(6, 2);
-    const h = timeStr.substr(8, 2);
-    const m = timeStr.substr(10, 2);
-    const s = timeStr.substr(12, 2);
-    return new Date(Date.UTC(Y, M, D, h - 8, m, s));
+
+    const Y = parseInt(timeStr.substr(0, 4), 10);
+    const M = parseInt(timeStr.substr(4, 2), 10) - 1;
+    const D = parseInt(timeStr.substr(6, 2), 10);
+    const h = parseInt(timeStr.substr(8, 2), 10);
+    const m = parseInt(timeStr.substr(10, 2), 10);
+    const s = parseInt(timeStr.substr(12, 2), 10);
+
+    const tzMatch = timeStr.match(/([+-]\d{4})$/);
+    if (tzMatch) {
+      const tz = tzMatch[1];
+      const sign = tz.charAt(0) === '+' ? 1 : -1;
+      const tzHours = parseInt(tz.substr(1, 2), 10);
+      const tzMins = parseInt(tz.substr(3, 2), 10);
+      
+      const utcTimestamp = Date.UTC(Y, M, D, h, m, s);
+      const tzOffsetMs = sign * (tzHours * 60 + tzMins) * 60 * 1000;
+      return new Date(utcTimestamp - tzOffsetMs);
+    }
+
+    return new Date(Date.UTC(Y, M, D, h, m, s));
   }
 
   function getCurrentProgramme(ch) {
@@ -749,21 +809,50 @@
     container.innerHTML = '';
 
     if (channelProgs.length === 0) {
-      container.innerHTML = '<div style="color: #64748b; text-align: center; padding: 20px;">未匹配到该频道的 EPG 信息</div>';
+      container.innerHTML = '<div style="color: #64748b; text-align: center; padding: 20px; grid-column: 1/-1;">未匹配到该频道的 EPG 信息</div>';
     } else {
+      const groupedByDate = {};
+      
       channelProgs.forEach(p => {
-        const isNow = (now >= p.start && now <= p.stop);
-        const startTime = p.start.toTimeString().substr(0, 5);
-        const stopTime = p.stop.toTimeString().substr(0, 5);
+        const year = p.start.getFullYear();
+        const month = String(p.start.getMonth() + 1).padStart(2, '0');
+        const day = String(p.start.getDate()).padStart(2, '0');
+        const dateKey = `${year}-${month}-${day}`;
 
-        const div = document.createElement('div');
-        div.className = `epg-schedule-item ${isNow ? 'now-playing' : ''}`;
-        div.innerHTML = `
-          <span class="epg-time">${startTime} - ${stopTime}</span>
-          <span class="epg-title">${p.title}</span>
-          ${isNow ? '<span class="epg-tag">正在播出</span>' : ''}
-        `;
-        container.appendChild(div);
+        if (!groupedByDate[dateKey]) {
+          groupedByDate[dateKey] = [];
+        }
+        groupedByDate[dateKey].push(p);
+      });
+
+      Object.keys(groupedByDate).sort().forEach(dateKey => {
+        const dayColumn = document.createElement('div');
+        dayColumn.className = 'epg-day-column';
+
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'epg-day-header';
+        dayHeader.innerText = dateKey;
+        dayColumn.appendChild(dayHeader);
+
+        const dayList = document.createElement('div');
+        dayList.className = 'epg-day-list';
+
+        groupedByDate[dateKey].forEach(p => {
+          const isNow = (now >= p.start && now <= p.stop);
+          const startTime = p.start.toTimeString().substr(0, 5);
+
+          const div = document.createElement('div');
+          div.className = `epg-schedule-item ${isNow ? 'now-playing' : ''}`;
+          div.innerHTML = `
+            <span class="epg-time">${startTime}</span>
+            <span class="epg-title">${p.title}</span>
+            ${isNow ? '<span class="epg-tag">直播中</span>' : ''}
+          `;
+          dayList.appendChild(div);
+        });
+
+        dayColumn.appendChild(dayList);
+        container.appendChild(dayColumn);
       });
     }
 
@@ -774,14 +863,12 @@
     document.getElementById('epgModal').classList.remove('active');
   }
 
-  // 点击半透明背景空白处关闭弹窗
   document.getElementById('epgModal').addEventListener('click', function(e) {
     if (e.target === this) {
       closeEpgModal();
     }
   });
 
-  // 按 Esc 键关闭弹窗
   document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
       closeEpgModal();
