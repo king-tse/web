@@ -2,7 +2,9 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
-  <title>Personal Radio</title>
+  <!-- 1. 添加移动端视口设置，解决手机端缩放问题 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的私人网络收音机</title>
   <style>
     /* 1. 页面整体 Flex 布局让整体上下左右看起来更舒适 */
     body { 
@@ -44,6 +46,7 @@
     /* 让音频播放控件拉满卡片宽度 */
     audio { 
       width: 100%; 
+      display: block;
       outline: none;
     }
 
@@ -116,7 +119,7 @@
       <div class="logo">BBC RADIO 1</div>
       <div class="subtitle">Live Radio Stream</div>
       <a href="https://www.bbc.co.uk/sounds/play/live/bbc_radio_one" target="_blank" class="btn">
-        ▶ Listen to BBC Radio 1
+        ▶ 收听 BBC Radio 1
       </a>
     </div>
   </div>
