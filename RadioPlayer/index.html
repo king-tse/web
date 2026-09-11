@@ -164,18 +164,25 @@
   </div>
 
   <script>
-    // 使用事件捕获监听全局 play 事件
-    document.addEventListener('play', function(e) {
-      if (e.target && e.target.tagName && e.target.tagName.toLowerCase() === 'audio') {
-        var audios = document.getElementsByTagName('audio');
-        for (var i = 0; i < audios.length; i++) {
-          if (audios[i] !== e.target) {
-            audios[i].pause();
-            audios[i].load();   // ← 新增：立即中止当前下载
-          }
-        }
+// 1. 监听 play 事件：播放当前电台时，强行暂停并断开其他所有电台
+document.addEventListener('play', function(e) {
+  if (e.target && e.target.tagName && e.target.tagName.toLowerCase() === 'audio') {
+    var audios = document.getElementsByTagName('audio');
+    for (var i = 0; i < audios.length; i++) {
+      if (audios[i] !== e.target) {
+        audios[i].pause();
+        audios[i].load(); // 切断其他播放器的网络连接
       }
-    }, true);
+    }
+  }
+}, true);
+
+// 2. 监听 pause 事件：单个电台主动点击暂停时，也立刻执行 load() 切断流量
+document.addEventListener('pause', function(e) {
+  if (e.target && e.target.tagName && e.target.tagName.toLowerCase() === 'audio') {
+    e.target.load(); // 当手动点击暂停时，强行重置并切断后台直播流连接
+  }
+}, true);
   </script>
 
 </body>
