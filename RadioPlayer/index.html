@@ -121,8 +121,8 @@
       <audio controls preload="none">
         <source src="https://kexp.streamguys1.com/kexp160.aac" type="audio/mpeg">
         你的浏览器不支持 audio 标签。
-    /* 标准 128k MP3 流（通用兼容性高）：https://kexp-mp3-128.streamguys1.com/kexp128.mp3 */
-    /* 高清 160k AAC 流（推荐音质）：https://kexp.streamguys1.com/kexp160.aac */
+       <!-- 标准 128k MP3 流：https://kexp-mp3-128.streamguys1.com/kexp128.mp3 -->
+       <!-- 高清 160k AAC 流（当前使用）：https://kexp.streamguys1.com/kexp160.aac -->
       </audio>
     </div>
 
@@ -171,6 +171,7 @@
         for (var i = 0; i < audios.length; i++) {
           if (audios[i] !== e.target) {
             audios[i].pause();
+            audios[i].load();   // ← 新增：立即中止当前下载
           }
         }
       }
