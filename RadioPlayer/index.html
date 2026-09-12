@@ -15,21 +15,27 @@
       margin: 0;
     }
 
-    /* 2. 主容器：限制最大宽度为 450px，并水平居中 */
+    /* 2. 主容器：限制最大宽度为 900px，并水平居中，使用网格实现两列布局 */
     .container {
-      max-width: 450px;
+      max-width: 900px;
       margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      align-items: start; /* 避免卡片高度拉伸不一致 */
     }
 
+    /* 让标题跨越两列 */
     h2 {
+      grid-column: 1 / -1;
       text-align: center;
-      margin-bottom: 25px;
+      margin-bottom: 5px; /* 原有margin-bottom:25px，调整为5px以配合网格间距 */
       letter-spacing: 1px;
     }
 
     /* 3. 电台卡片基础样式：缩小尺寸并增加精致感 */
     .player-box { 
-      margin-bottom: 20px; 
+      margin-bottom: 0; /* 原有margin-bottom:20px，由grid gap统一控制间距 */
       padding: 20px; 
       background: #1e1e1e; 
       border-radius: 12px; 
@@ -54,7 +60,7 @@
     .card {
       background: #1e1e1e;
       padding: 20px;
-      margin-bottom: 20px; /* 补全外边距，保持与其他卡片一致的下间距 */
+      margin-bottom: 0; /* 原有margin-bottom:20px，由grid gap统一控制间距 */
       border-radius: 12px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.3);
       text-align: center;
@@ -89,6 +95,14 @@
       background-color: #e0004c;
       transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(255, 0, 85, 0.4);
+    }
+
+    /* 移动端适配：当屏幕宽度小于 640px 时，恢复为单列 */
+    @media (max-width: 640px) {
+      .container {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
     }
   </style>
 </head>
@@ -140,6 +154,15 @@
       <h3>SomaFM: Groove Salad</h3>
       <audio controls preload="none">
         <source src="https://ice2.somafm.com/groovesalad-128-mp3" type="audio/mpeg">
+        你的浏览器不支持 audio 标签。
+      </audio>
+    </div>
+
+    <!-- 上海经典947 -->
+    <div class="player-box">
+      <h3>上海经典947</h3>
+      <audio controls preload="none">
+        <source src="https://lhttp.qingting.fm/live/267/64k.mp3" type="audio/mpeg">
         你的浏览器不支持 audio 标签。
       </audio>
     </div>
