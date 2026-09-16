@@ -21,3 +21,5 @@ My personal audio haven for streaming handpicked radio stations.
 # Live TV Player
 
 [Live Tv Player](https://king-tse.github.io/web/TV/index.html)
+
+[IPTV Tester](https://king-tse.github.io/web/TV/iptv-source-tester.html)
