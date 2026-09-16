@@ -1,5 +1,7 @@
 # 计划汇聚主要电视台列表
 
+iptv-source-tester.html     # 频道源本地链接质量测试
+
 ## news
 
 BBC News
